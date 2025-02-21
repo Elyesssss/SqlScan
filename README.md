@@ -3,8 +3,7 @@
 SQLScan is a powerful SQL injection vulnerability scanner written in Go. It helps identify potential SQL injection vulnerabilities in web applications by performing automated tests with various payloads.
 
 
-<img src="images/sqlscan.png" alt="Aperçu de SQLScan" width="800"/>
-
+<img src="images/sqlscan.png" alt="Aperçu de SQLScan" width="80%"/>
 ## Features
 
 - 🔍 Comprehensive SQL injection payload testing
