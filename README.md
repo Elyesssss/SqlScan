@@ -9,7 +9,7 @@ SQLScan is a powerful SQL injection vulnerability scanner written in Go. It help
 - 🚀 Concurrent scanning for improved performance
 - 📊 Detailed vulnerability reporting
 - 🛡️ Path discovery for sensitive endpoints
-- 📝 JSON and text report generation
+- 📝 JSON report generation
 - ⚡ Rate limiting and timeout controls
 - 🔄 Automatic form detection and testing
 
@@ -44,15 +44,19 @@ go mod tidy
 
 ## Usage
 
-Run the scanner with a target URL:
-
+1. Build the executable:
 ```bash
-go run main.go <target_url>
+go build -o sqlscan main.go
+```
+
+2. Run the scanner:
+```bash
+./sqlscan <target_url>
 ```
 
 Example:
 ```bash
-go run main.go http://example.com
+./sqlscan http://example.com
 ```
 
 The scanner will:
@@ -89,10 +93,6 @@ type Config struct {
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
